@@ -1,10 +1,14 @@
 import { chromium } from 'playwright-core'
+import { once } from 'node:events'
 
 const externalBase = process.env.PWA_BASE_URL
+let localServer
 if (!externalBase) {
   process.env.PORT = '3119'
   process.env.APP_URL = 'http://127.0.0.1:3119'
-  await import('../server/index.js')
+  const { startServer } = await import('../server/index.js')
+  localServer = startServer(3119)
+  await once(localServer, 'listening')
 }
 const base = externalBase?.replace(/\/$/, '') || 'http://127.0.0.1:3119'
 let browser
@@ -28,5 +32,6 @@ try {
   console.error(error)
 } finally {
   if (browser) await browser.close()
+  if (localServer) localServer.close()
   process.exit(failed ? 1 : 0)
 }

@@ -1,11 +1,15 @@
 import { createHmac } from 'node:crypto'
+import { once } from 'node:events'
 import { query, pool } from '../server/db.js'
 
 const port = 3112
 const externalBase = process.env.SMOKE_BASE_URL
+let localServer
 if (!externalBase) {
   process.env.PORT = String(port)
-  await import('../server/index.js')
+  const { startServer } = await import('../server/index.js')
+  localServer = startServer(port)
+  await once(localServer, 'listening')
 }
 const base = externalBase ? `${externalBase.replace(/\/$/, '')}/api` : `http://127.0.0.1:${port}/api`
 const email = `smoke-${Date.now()}@example.invalid`
@@ -40,11 +44,18 @@ try {
   if (!community.result.challenge?.prompt) throw new Error('Community prompt missing')
   await call('/submissions', 'POST', { response: 'The stapler has quietly taken over.' }, cookie)
   const feed = await call('/community', 'GET', null, cookie)
-  if (!feed.result.entries.some((item) => item.response.includes('stapler'))) throw new Error('Community submission missing')
+  const ownEntry = feed.result.entries.find((item) => item.response.includes('stapler'))
+  if (!ownEntry) throw new Error('Community submission missing')
+  await call(`/submissions/${ownEntry.id}/react`, 'POST', null, cookie)
+  const reacted = await call('/community', 'GET', null, cookie)
+  const ownReaction = reacted.result.entries.find((item) => item.id === ownEntry.id)
+  if (ownReaction.reaction_count !== 1 || !ownReaction.appreciated_by_me) throw new Error('Own reaction was not saved')
+  const duplicate = await fetch(`${base}/submissions/${ownEntry.id}/react`, { method: 'POST', headers: { Cookie: cookie } })
+  if (duplicate.status !== 409) throw new Error('Duplicate reaction was accepted')
   await call('/auth/logout', 'POST', null, cookie)
   const afterLogout = await fetch(`${base}/me`, { headers: { Cookie: cookie } })
   if (afterLogout.status !== 401) throw new Error('Logout did not invalidate the session')
-  console.log('PASS: six-digit code rejection/verification/replay, session, check-in write/read, community write/read, logout')
+  console.log('PASS: six-digit code rejection/verification/replay, session, check-in write/read, community write/read, own reaction, duplicate rejection, logout')
 } catch (error) {
   failed = true
   console.error(error)
@@ -52,5 +63,6 @@ try {
   if (userId) await query('DELETE FROM app_users WHERE id=$1', [userId])
   await query('DELETE FROM sign_in_links WHERE email=$1', [email])
   await pool.end()
+  if (localServer) localServer.close()
   process.exit(failed ? 1 : 0)
 }

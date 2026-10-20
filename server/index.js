@@ -101,12 +101,12 @@ export async function route(req, res) {
   }
   if (method === 'GET' && url.pathname === '/api/community') {
     const today = day(); const ordinal = Math.floor(Date.parse(`${today}T00:00:00Z`) / 86400000)
-    const rows = await query("SELECT s.id,s.response,s.created_at,'Member ' || u.id AS author_name,count(r.user_id)::int AS reaction_count FROM submissions s JOIN app_users u ON u.id=s.user_id LEFT JOIN reactions r ON r.submission_id=s.id WHERE s.challenge_date=$1 GROUP BY s.id,u.id ORDER BY reaction_count DESC,s.created_at ASC LIMIT 100", [today])
+    const rows = await query("SELECT s.id,s.response,s.created_at,'Member ' || u.id AS author_name,count(r.user_id)::int AS reaction_count,COALESCE(bool_or(r.user_id=$2),false) AS appreciated_by_me FROM submissions s JOIN app_users u ON u.id=s.user_id LEFT JOIN reactions r ON r.submission_id=s.id WHERE s.challenge_date=$1 GROUP BY s.id,u.id ORDER BY reaction_count DESC,s.created_at ASC LIMIT 100", [today, user.id])
     json(res, 200, { challenge: { date: today, prompt: prompts[ordinal % prompts.length] }, entries: rows.rows }); return
   }
   if (method === 'POST' && url.pathname === '/api/submissions') { const data = await body(req); if (typeof data.response !== 'string' || data.response.trim().length < 2 || data.response.length > 400) { json(res, 400, { error: 'Write an answer between 2 and 400 characters.' }); return } const result = await query('INSERT INTO submissions(user_id,challenge_date,response) VALUES($1,$2,$3) ON CONFLICT(user_id,challenge_date) DO NOTHING RETURNING id', [user.id, day(), data.response.trim()]); if (!result.rowCount) { json(res, 409, { error: 'You already answered today’s prompt.' }); return } json(res, 201, { ok: true }); return }
   const reaction = url.pathname.match(/^\/api\/submissions\/(\d+)\/react$/)
-  if (method === 'POST' && reaction) { const result = await query('INSERT INTO reactions(user_id,submission_id) SELECT $1,id FROM submissions WHERE id=$2 AND challenge_date=$3 AND user_id<>$1 ON CONFLICT DO NOTHING RETURNING user_id', [user.id, Number(reaction[1]), day()]); if (!result.rowCount) { json(res, 409, { error: 'You cannot appreciate this answer again.' }); return } json(res, 200, { ok: true }); return }
+  if (method === 'POST' && reaction) { const result = await query('INSERT INTO reactions(user_id,submission_id) SELECT $1,id FROM submissions WHERE id=$2 AND challenge_date=$3 ON CONFLICT DO NOTHING RETURNING user_id', [user.id, Number(reaction[1]), day()]); if (!result.rowCount) { json(res, 409, { error: 'You already appreciated this answer.' }); return } json(res, 200, { ok: true }); return }
   json(res, 404, { error: 'Not found.' })
 }
 async function serveStatic(requestPath, res) {
@@ -117,6 +117,7 @@ async function serveStatic(requestPath, res) {
   try { const file = await readFile(target); const extension = path.extname(target); res.writeHead(200, { 'Content-Type': ({ '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' })[extension] || 'application/octet-stream' }); res.end(file) } catch { res.writeHead(404); res.end('Not found') }
 }
 export function handleError(error, res) { console.error(error); if (!res.headersSent) json(res, 500, { error: 'Server error. Please try again.' }) }
+export function startServer(listenPort = port) { return http.createServer((req, res) => route(req, res).catch((error) => handleError(error, res))).listen(listenPort, () => console.log(`Daily Burnout API listening on ${listenPort}`)) }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  http.createServer((req, res) => route(req, res).catch((error) => handleError(error, res))).listen(port, () => console.log(`Daily Burnout API listening on ${port}`))
+  startServer()
 }
