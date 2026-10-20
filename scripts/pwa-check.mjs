@@ -1,9 +1,12 @@
 import { chromium } from 'playwright-core'
 
-process.env.PORT = '3119'
-process.env.APP_URL = 'http://127.0.0.1:3119'
-await import('../server/index.js')
-const base = 'http://127.0.0.1:3119'
+const externalBase = process.env.PWA_BASE_URL
+if (!externalBase) {
+  process.env.PORT = '3119'
+  process.env.APP_URL = 'http://127.0.0.1:3119'
+  await import('../server/index.js')
+}
+const base = externalBase?.replace(/\/$/, '') || 'http://127.0.0.1:3119'
 let browser
 let failed = false
 try {

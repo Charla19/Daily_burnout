@@ -2,9 +2,12 @@ import { createHmac } from 'node:crypto'
 import { query, pool } from '../server/db.js'
 
 const port = 3112
-process.env.PORT = String(port)
-await import('../server/index.js')
-const base = `http://127.0.0.1:${port}/api`
+const externalBase = process.env.SMOKE_BASE_URL
+if (!externalBase) {
+  process.env.PORT = String(port)
+  await import('../server/index.js')
+}
+const base = externalBase ? `${externalBase.replace(/\/$/, '')}/api` : `http://127.0.0.1:${port}/api`
 const email = `smoke-${Date.now()}@example.invalid`
 const code = '482916'
 const digest = createHmac('sha256', process.env.AUTH_CODE_SECRET).update(`${email}:${code}`).digest('hex')
