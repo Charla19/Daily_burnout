@@ -6,7 +6,8 @@ import { query, pool } from '../server/db.js'
 
 process.env.PORT = '3118'
 process.env.APP_URL = 'http://127.0.0.1:5178'
-await import('../server/index.js')
+const { startServer } = await import('../server/index.js')
+const apiServer = startServer(3118)
 const base = 'http://127.0.0.1:5178'
 const vite = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5178'], { env: { ...process.env, API_PORT: '3118' }, stdio: 'ignore' })
 const email = `visual-${Date.now()}@example.invalid`
@@ -28,14 +29,14 @@ try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 })
   const page = await context.newPage()
   await page.goto(base)
-  await page.getByRole('heading', { name: 'Welcome back.' }).waitFor()
+  await page.getByRole('heading', { name: /Clock out/ }).waitFor()
   await page.screenshot({ path: 'screenshots/sign-in-desktop.png', fullPage: true })
-  await page.getByRole('button', { name: 'Change appearance' }).click()
+  await page.getByRole('button', { name: 'Switch to light mode' }).click()
   if (await page.evaluate(() => document.documentElement.dataset.theme) !== 'light') throw new Error('Light mode did not activate')
   await page.screenshot({ path: 'screenshots/sign-in-light-desktop.png', fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.screenshot({ path: 'screenshots/sign-in-light-mobile.png', fullPage: true })
-  await page.getByRole('button', { name: 'Change appearance' }).click()
+  await page.getByRole('button', { name: 'Switch to dark mode' }).click()
   await page.screenshot({ path: 'screenshots/sign-in-mobile.png', fullPage: true })
   const loginWidth = await page.evaluate(() => ({ viewport: window.innerWidth, content: document.documentElement.scrollWidth }))
   if (loginWidth.content > loginWidth.viewport) throw new Error(`Mobile sign-in overflows: ${JSON.stringify(loginWidth)}`)
@@ -49,21 +50,17 @@ try {
   if (!verified.ok()) throw new Error(`Browser authentication failed: ${verified.status()}`)
   userId = (await verified.json()).user.id
   await page.reload()
-  await page.getByRole('heading', { name: /Take a breath/ }).waitFor()
-  await page.getByRole('button', { name: 'Open menu' }).click()
-  await page.getByRole('button', { name: 'Light mode' }).click()
-  await page.locator('.sidebar .mobile-only').click()
+  await page.getByRole('heading', { name: /OFF DUTY/ }).waitFor()
+  await page.getByRole('button', { name: 'Switch to light mode' }).click()
   await page.waitForTimeout(300)
   await page.screenshot({ path: 'screenshots/check-in-light-mobile.png', fullPage: true })
-  await page.getByRole('button', { name: 'Open menu' }).click()
-  await page.getByRole('button', { name: 'Dark mode' }).click()
-  await page.locator('.sidebar .mobile-only').click()
+  await page.getByRole('button', { name: 'Switch to dark mode' }).click()
   await page.waitForTimeout(300)
   await page.screenshot({ path: 'screenshots/check-in-mobile.png', fullPage: true })
   const appWidth = await page.evaluate(() => ({ viewport: window.innerWidth, content: document.documentElement.scrollWidth }))
   if (appWidth.content > appWidth.viewport) throw new Error(`Mobile app overflows: ${JSON.stringify(appWidth)}`)
-  await page.getByRole('button', { name: /See my daily reset/ }).click()
-  await page.getByRole('heading', { name: /A better way/ }).waitFor()
+  await page.getByRole('button', { name: /Predict my extremely fake crash/ }).click()
+  await page.getByRole('heading', { name: /The daily receipt/i }).waitFor().catch(async () => page.locator('.field-note h2').waitFor())
   await page.screenshot({ path: 'screenshots/reset-mobile.png', fullPage: true })
   console.log(`PASS: desktop and mobile render, no mobile overflow, authenticated check-in and reset (${loginWidth.viewport}px viewport)`)
 } catch (error) {
@@ -72,6 +69,7 @@ try {
 } finally {
   if (browser) await browser.close()
   vite.kill()
+  apiServer.close()
   if (userId) await query('DELETE FROM app_users WHERE id=$1', [userId])
   await query('DELETE FROM sign_in_links WHERE email=$1', [email])
   await pool.end()

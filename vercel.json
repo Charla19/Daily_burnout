@@ -6,5 +6,8 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/handler?path=$1" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/cron/daily", "schedule": "5 21 * * *" }
   ]
 }

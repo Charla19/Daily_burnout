@@ -8,7 +8,7 @@ const url = new URL(direct)
 url.searchParams.set('sslmode', 'verify-full')
 const client = new pg.Client({ connectionString: url.toString() })
 await client.connect()
-for (const file of ['001_init.sql', '002_code_attempts.sql']) {
+for (const file of ['001_init.sql', '002_code_attempts.sql', '003_playful_features.sql']) {
   const sql = await readFile(new URL(`./migrations/${file}`, import.meta.url), 'utf8')
   await client.query(sql)
 }

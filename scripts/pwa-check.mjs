@@ -18,14 +18,14 @@ try {
   const context = await browser.newContext({ serviceWorkers: 'allow' })
   const page = await context.newPage()
   await page.goto(base)
-  await page.getByRole('heading', { name: 'Welcome back.' }).waitFor()
+  await page.getByRole('heading', { name: /Clock out/ }).waitFor()
   const manifestResponse = await page.request.get(`${base}/manifest.webmanifest`)
   const manifest = await manifestResponse.json()
   if (manifest.display !== 'standalone' || manifest.icons.length < 2) throw new Error('PWA manifest is incomplete')
   await page.evaluate(() => Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => setTimeout(() => reject(new Error('Service worker did not become ready')), 8000))]))
   await context.setOffline(true)
   await page.reload()
-  await page.getByRole('heading', { name: 'Welcome back.' }).waitFor()
+  await page.getByRole('heading', { name: /Clock out/ }).waitFor()
   console.log('PASS: standalone manifest, service worker registration, offline app shell')
 } catch (error) {
   failed = true
