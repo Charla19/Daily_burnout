@@ -50,7 +50,7 @@ try {
   if (!verified.ok()) throw new Error(`Browser authentication failed: ${verified.status()}`)
   userId = (await verified.json()).user.id
   await page.reload()
-  await page.getByRole('heading', { name: /OFF DUTY/ }).waitFor()
+  await page.getByRole('heading', { name: /THE DESK/ }).waitFor()
   await page.getByRole('button', { name: 'Switch to light mode' }).click()
   await page.waitForTimeout(300)
   await page.screenshot({ path: 'screenshots/check-in-light-mobile.png', fullPage: true })

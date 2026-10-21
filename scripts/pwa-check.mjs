@@ -26,7 +26,10 @@ try {
   await context.setOffline(true)
   await page.reload()
   await page.getByRole('heading', { name: /Clock out/ }).waitFor()
-  console.log('PASS: standalone manifest, service worker registration, offline app shell')
+  const mascot = page.getByRole('img', { name: /little red escapee/ })
+  await mascot.waitFor()
+  if (!await mascot.evaluate((image) => image.complete && image.naturalWidth > 0)) throw new Error('Escapee art is missing offline')
+  console.log('PASS: standalone manifest, service worker registration, offline app shell and artwork')
 } catch (error) {
   failed = true
   console.error(error)

@@ -1,1 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#e6403a"/><text x="255" y="350" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="330" fill="#fff">d</text><circle cx="373" cy="328" r="24" fill="#171717"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Daily Burnout">
+  <rect width="512" height="512" rx="108" fill="#121525"/>
+  <g transform="rotate(-7 256 256)">
+    <path d="M103 113 Q128 94 167 100 L392 112 Q415 114 418 142 L412 393 Q409 414 382 414 L123 406 Q99 403 98 380 L95 148 Q95 124 103 113Z" fill="#fa523a" transform="translate(16 21)"/>
+    <path d="M103 113 Q128 94 167 100 L392 112 Q415 114 418 142 L412 393 Q409 414 382 414 L123 406 Q99 403 98 380 L95 148 Q95 124 103 113Z" fill="#dcfa63"/>
+    <text x="240" y="347" text-anchor="middle" font-family="Georgia, serif" font-size="302" font-weight="bold" letter-spacing="-26" fill="#171827">d</text>
+    <circle cx="361" cy="344" r="26" fill="#fa523a"/>
+  </g>
+</svg>
