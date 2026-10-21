@@ -1,7 +1,7 @@
 import './env.js'
 
 const key = process.env.XAI_API_KEY?.trim()
-export const aiReady = Boolean(key && !key.startsWith('gsk_'))
+export const aiReady = Boolean(key?.startsWith('xai-'))
 
 const fallback = [
   {
