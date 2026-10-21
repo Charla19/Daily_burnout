@@ -4,7 +4,7 @@ import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { pool, query } from './db.js'
-import { aiReady, fallbackSatire, generateChallenge, generateImage, generateSatire } from './ai.js'
+import { aiReady, generateChallenge, generateImage, generateSatire } from './ai.js'
 import { deleteImage, imageUrl, saveImage, storageReady } from './storage.js'
 
 const port = Number(process.env.PORT || 3101)
@@ -54,14 +54,14 @@ async function challengeFor(date) {
 }
 async function createDailyChallenge(date) {
   const current = await query('SELECT source FROM daily_challenges WHERE local_date=$1', [date])
-  if (current.rows[0]?.source === 'grok') return challengeFor(date)
+  if (current.rows[0]?.source === 'cloudflare') return challengeFor(date)
   let prompt = curatedChallenge(date).prompt
   let source = 'curated'
   let imageKey = null
   if (aiReady) {
     try {
       prompt = await generateChallenge()
-      source = 'grok'
+      source = 'cloudflare'
       if (storageReady) {
         const image = await generateImage(prompt)
         imageKey = `challenge/${date}-${randomUUID()}.jpg`
@@ -177,7 +177,7 @@ export async function route(req, res) {
       const inserted = await query('INSERT INTO submissions(user_id,challenge_date,response,image_key) VALUES($1,$2,$3,$4) ON CONFLICT(user_id,challenge_date) DO NOTHING RETURNING id', [user.id, day(), prompt, key])
       if (!inserted.rowCount) { await deleteImage(key); json(res, 409, { error: 'You already answered today’s prompt.' }); return }
       json(res, 201, { ok: true, image_url: await imageUrl(key) }); return
-    } catch (error) { if (key) await deleteImage(key).catch(() => {}); throw error }
+    } catch (error) { if (key) await deleteImage(key).catch(() => {}); if (error.aiProvider) { json(res, 503, { error: 'The art lab is taking a break. Try again later.' }); return } throw error }
     finally { await query('DELETE FROM image_requests WHERE user_id=$1 AND challenge_date=$2', [user.id, day()]) }
   }
   if (method === 'POST' && url.pathname === '/api/submissions') {

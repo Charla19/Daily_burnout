@@ -1,7 +1,8 @@
 import './env.js'
 
-const key = process.env.XAI_API_KEY?.trim()
-export const aiReady = Boolean(key?.startsWith('xai-'))
+const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim()
+const token = process.env.CLOUDFLARE_API_TOKEN?.trim()
+export const aiReady = Boolean(accountId && token)
 
 const fallback = [
   {
@@ -29,32 +30,32 @@ export function fallbackSatire(form) {
   return { ...fallback[pick], source: 'curated' }
 }
 
-async function xaiRequest(path, payload, timeoutMs = 45000) {
-  if (!aiReady) throw new Error('Grok is not configured with an xAI key')
-  const response = await fetch(`https://api.x.ai/v1/${path}`, {
+async function workersAiRequest(model, payload, timeoutMs = 45000) {
+  if (!aiReady) throw new Error('Cloudflare Workers AI is not configured')
+  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(timeoutMs),
   })
-  if (!response.ok) {
-    const raw = await response.text()
-    let detail
-    try { detail = JSON.parse(raw) } catch { detail = null }
-    throw new Error(`Grok request failed (${response.status}): ${String(detail?.error?.message || detail?.message || raw || 'Unknown API error').slice(0, 240)}`)
+  const data = await response.json().catch(() => null)
+  if (!response.ok || !data?.success) {
+    const detail = data?.errors?.[0]?.message || data?.error || `HTTP ${response.status}`
+    const error = new Error(`Cloudflare Workers AI failed: ${String(detail).slice(0, 240)}`)
+    error.aiProvider = true
+    throw error
   }
-  return response.json()
+  return data.result
 }
 
 async function text(system, prompt, maxOutputTokens = 320) {
-  const result = await xaiRequest('responses', {
-    model: process.env.XAI_TEXT_MODEL || 'grok-4.7',
-    input: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
-    max_output_tokens: maxOutputTokens,
-    store: false,
+  const result = await workersAiRequest(process.env.CLOUDFLARE_TEXT_MODEL || '@cf/meta/llama-3.1-8b-instruct-fp8', {
+    messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
+    max_tokens: maxOutputTokens,
+    temperature: 0.75,
   })
-  const output = result.output?.flatMap((item) => item.type === 'message' ? item.content || [] : []).filter((item) => item.type === 'output_text').map((item) => item.text).join('\n').trim()
-  if (!output) throw new Error('Grok returned no text')
+  const output = result?.response?.trim()
+  if (!output) throw new Error('Cloudflare returned no text')
   return output
 }
 
@@ -68,32 +69,28 @@ export async function generateSatire(form) {
       500,
     )
     const parsed = JSON.parse(answer.replace(/^```(?:json)?\s*|\s*```$/g, ''))
-    if (typeof parsed.title !== 'string' || typeof parsed.message !== 'string' || typeof parsed.managerNote !== 'string' || !Array.isArray(parsed.oracleLines) || parsed.oracleLines.length < 3) throw new Error('Grok returned incomplete satire')
-    return { title: parsed.title.slice(0, 110), message: parsed.message.slice(0, 700), managerNote: parsed.managerNote.slice(0, 700), oracleLines: parsed.oracleLines.slice(0, 3).map((line) => String(line).slice(0, 160)), source: 'grok' }
+    if (typeof parsed.title !== 'string' || typeof parsed.message !== 'string' || typeof parsed.managerNote !== 'string' || !Array.isArray(parsed.oracleLines) || parsed.oracleLines.length < 3) throw new Error('Cloudflare returned incomplete satire')
+    return { title: parsed.title.slice(0, 110), message: parsed.message.slice(0, 700), managerNote: parsed.managerNote.slice(0, 700), oracleLines: parsed.oracleLines.slice(0, 3).map((line) => String(line).slice(0, 160)), source: 'cloudflare' }
   } catch (error) {
-    console.error('Grok satire fallback:', error.message)
+    console.error('Workers AI satire fallback:', error.message)
     return backup
   }
 }
 
 export async function generateChallenge() {
-  if (!aiReady) throw new Error('Grok is not configured with an xAI key')
+  if (!aiReady) throw new Error('Cloudflare Workers AI is not configured')
   const answer = await text('Write one absurd, visual office-themed image challenge for a short break. Sharp and funny, not mean. English only. One sentence, at most 150 characters. No title, quote marks, emojis, or introduction.', 'Invent today’s challenge. Avoid generic coffee mugs and boring meetings.', 100)
   return answer.replace(/^['"\s]+|['"\s]+$/g, '').slice(0, 180)
 }
 
 export async function generateImage(prompt) {
-  const result = await xaiRequest('images/generations', {
-    model: process.env.XAI_IMAGE_MODEL || 'grok-imagine-image-2.0',
+  const result = await workersAiRequest(process.env.CLOUDFLARE_IMAGE_MODEL || '@cf/black-forest-labs/flux-1-schnell', {
     prompt: `Playful editorial illustration for an anti-burnout office break room. Bold flat ink, black, white and vermilion red only. Slightly absurd, expressive, visually clear. No words, letters, logos, gradients or generic AI glow. Scene: ${prompt.slice(0, 500)}`,
-    aspect_ratio: '1:1',
-    quality: 'low',
-    response_format: 'b64_json',
-    n: 1,
+    steps: 4,
   }, 90000)
-  const encoded = result.data?.[0]?.b64_json
-  if (!encoded) throw new Error('Grok returned no image')
+  const encoded = result?.image
+  if (!encoded) throw new Error('Cloudflare returned no image')
   const bytes = Buffer.from(encoded, 'base64')
   if (bytes.length > 7_000_000) throw new Error('Generated image is too large')
-  return { bytes, contentType: result.data[0].mime_type || 'image/jpeg' }
+  return { bytes, contentType: 'image/jpeg' }
 }
