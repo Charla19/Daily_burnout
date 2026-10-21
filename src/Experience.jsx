@@ -191,7 +191,10 @@ export default function Experience() {
   const [mailError, setMailError] = useState('')
   const [toast, setToast] = useState('')
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('theme', theme) }, [theme])
-  useEffect(() => { Promise.allSettled([api('/me'), api('/health')]).then(([account, health]) => { if (account.status === 'fulfilled') setUser(account.value.user); if (health.status === 'fulfilled') setAiAvailable(Boolean(health.value.ai)); setLoading(false) }) }, [])
+  useEffect(() => {
+    api('/me').then((account) => setUser(account.user)).catch(() => {}).finally(() => setLoading(false))
+    api('/health').then((health) => setAiAvailable(Boolean(health.ai))).catch(() => {})
+  }, [])
   useEffect(() => { if (!user) return; api('/checkins').then((data) => { setToday(data.today); setHistory(data.history) }).catch((error) => setToast(error.message)); refresh() }, [user])
   useEffect(() => {
     if (!nudgeAt) return undefined
@@ -226,7 +229,7 @@ export default function Experience() {
   }
   function cancelNudge() { localStorage.removeItem('dailyBurnoutNudgeAt'); setNudgeAt(0); setToast('Desk nudge cancelled.') }
   const toggleTheme = () => setTheme((current) => current === 'dark' ? 'light' : 'dark')
-  if (loading) return <div className="boot-screen"><Creature small /><span>ESCAPING THE INBOX...</span></div>
+  if (loading) return <div className="boot-screen" role="status" aria-live="polite"><div className="boot-art" aria-hidden="true"><span className="boot-paper boot-paper-one">99+</span><span className="boot-paper boot-paper-two">LATER</span><span className="boot-paper boot-paper-three">✳</span><img src="/icon.svg" alt="" /></div><div className="boot-copy"><span className="eyebrow">DAILY BURNOUT / PLEASE HOLD</span><strong>Hang on.<br /><i>The desk can wait.</i></strong><p>Finding the unofficial exit...</p><span className="boot-progress" aria-hidden="true"><span /></span></div></div>
   if (!user) return guestEscape ? <div className="guest-app"><Escape onBack={() => setGuestEscape(false)} /></div> : <SignIn theme={theme} toggleTheme={toggleTheme} onEscape={() => setGuestEscape(true)} />
   return <div className={`db-app ${tab === 'escape' ? 'in-escape' : ''}`}><header className="app-header"><button className="brand-button" onClick={() => setTab('today')} aria-label="Daily Burnout home"><Brand /></button><nav className="desktop-nav" aria-label="Main navigation">{nav.map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}</nav><div className="header-actions"><button className="icon-action" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>{theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}</button><span className="user-avatar" title={user.email}>{user.email[0].toUpperCase()}</span><button className="icon-action signout" onClick={logout} aria-label="Sign out"><LogOut size={20} /></button></div></header><main className="app-main">{tab === 'today' && <Today today={today} aiAvailable={aiAvailable} onSaved={saved} onMail={sendMemo} mailBusy={mailBusy} mailError={mailError} onEscape={() => setTab('escape')} nudgeAt={nudgeAt} onScheduleNudge={scheduleNudge} onCancelNudge={cancelNudge} />}{tab === 'community' && <Community user={user} challenge={challenge} entries={entries} artAvailable={artAvailable} refresh={refresh} />}{tab === 'escape' && <Escape onBack={() => setTab('today')} />}{tab === 'archive' && <Archive history={history} />}</main><footer className="app-footer"><span>DAILY BURNOUT © {new Date().getFullYear()}</span><span>MADE FOR HUMANS WITH TOO MANY TABS OPEN.</span></footer><nav className="mobile-nav" aria-label="Mobile navigation">{nav.map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}</nav>{toast && <div className="toast" role="status"><span>{toast}</span><button onClick={() => setToast('')} aria-label="Dismiss message"><X size={18} /></button></div>}</div>
 }

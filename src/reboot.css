@@ -44,6 +44,27 @@ html[data-theme=light] i{color:var(--red)}
 .app-footer{background:var(--bg);border-top:0;color:var(--muted)}
 .screen{max-width:none;padding-left:clamp(22px,5vw,84px);padding-right:clamp(22px,5vw,84px)}
 
+/* The first second of the app should belong to the new world, too. */
+.boot-screen{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;padding:35px 20px 60px;background:var(--bg);color:var(--ink);overflow:hidden;text-align:center;letter-spacing:normal}
+.boot-art{width:min(330px,76vw);height:min(280px,62vw);position:relative;display:grid;place-items:center;margin-bottom:12px;isolation:isolate}
+.boot-art:before{content:'';position:absolute;inset:8% 10%;background:var(--lilac);border-radius:49% 51% 54% 46% / 56% 42% 58% 44%;transform:rotate(-16deg);box-shadow:10px 12px 0 var(--shadow);animation:boot-wobble 2.5s ease-in-out infinite alternate}
+.boot-art img{width:45%;height:auto;z-index:2;transform:rotate(-7deg);filter:drop-shadow(6px 8px 0 #16152555);animation:boot-hop 1.7s ease-in-out infinite}
+.boot-paper{position:absolute;z-index:3;display:grid;place-items:center;font-family:var(--display);color:var(--paper-ink);box-shadow:4px 5px 0 var(--shadow)}
+.boot-paper-one{top:5%;left:2%;width:61px;height:58px;background:var(--lime);transform:rotate(-14deg);font-size:22px;animation:boot-float 2s ease-in-out infinite alternate}
+.boot-paper-two{right:1%;top:17%;width:74px;height:58px;background:var(--yellow);transform:rotate(12deg);font-size:16px;animation:boot-float 2.3s .2s ease-in-out infinite alternate-reverse}
+.boot-paper-three{left:8%;bottom:3%;width:58px;height:58px;background:var(--red);color:#fff;border-radius:50%;font-family:Georgia,serif;font-size:41px;animation:boot-float 2.1s .4s ease-in-out infinite alternate}
+.boot-copy{display:grid;justify-items:center;gap:17px}
+.boot-copy strong{font-family:var(--display);font-size:clamp(47px,7vw,86px);line-height:.95;letter-spacing:-.03em;transform:rotate(-2deg)}
+.boot-copy strong i{color:var(--lime);font-size:.8em}
+html[data-theme=light] .boot-copy strong i{color:var(--red)}
+.boot-copy p{font-size:15px;font-weight:800;color:var(--muted)}
+.boot-progress{width:min(250px,67vw);height:8px;border-radius:20px;background:var(--line);overflow:hidden}
+.boot-progress span{display:block;width:38%;height:100%;background:var(--lime);border-radius:20px;animation:boot-progress 1.35s ease-in-out infinite alternate}
+@keyframes boot-hop{50%{transform:translateY(-12px) rotate(4deg)}}
+@keyframes boot-wobble{to{transform:rotate(2deg) scale(1.03)}}
+@keyframes boot-float{to{translate:0 -11px}}
+@keyframes boot-progress{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
+
 /* The home is one big illustrated portal, followed by a low-friction check-in. */
 .today-screen{padding-bottom:0;overflow:hidden}
 .today-screen .hero{min-height:calc(100dvh - 85px);max-width:1650px;margin:auto;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);align-items:center;gap:1vw}
@@ -319,4 +340,4 @@ html[data-theme=light] .handnote{color:#b52328;text-shadow:none}
   .entry-stamp{width:75px;height:75px;top:-25px;font-size:11px}
   .entry-form h2{font-size:53px}
 }
-@media(prefers-reduced-motion:reduce){.screen,.escape-room,.desk-mascot,.entry-creature img,.escape-mascot{animation:none!important}.main-button,.outline-button,.desk-door,.desk-nope,.guest-escape{transition:none!important}}
+@media(prefers-reduced-motion:reduce){.screen,.escape-room,.desk-mascot,.entry-creature img,.escape-mascot,.boot-art:before,.boot-art img,.boot-paper,.boot-progress span{animation:none!important}.main-button,.outline-button,.desk-door,.desk-nope,.guest-escape{transition:none!important}}
