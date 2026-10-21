@@ -48,13 +48,15 @@ async function workersAiRequest(model, payload, timeoutMs = 45000) {
   return data.result
 }
 
-async function text(system, prompt, maxOutputTokens = 320) {
-  const result = await workersAiRequest(process.env.CLOUDFLARE_TEXT_MODEL || '@cf/meta/llama-3.1-8b-instruct-fp8', {
+async function text(system, prompt, maxOutputTokens = 320, schema = null) {
+  const result = await workersAiRequest(process.env.CLOUDFLARE_TEXT_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
     messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
     max_tokens: maxOutputTokens,
     temperature: 0.75,
+    ...(schema ? { response_format: { type: 'json_schema', json_schema: schema } } : {}),
   })
-  const output = result?.response?.trim()
+  const raw = result?.response ?? result?.choices?.[0]?.message?.content
+  const output = (typeof raw === 'string' ? raw : raw && typeof raw === 'object' ? JSON.stringify(raw) : '').trim()
   if (!output) throw new Error('Cloudflare returned no text')
   return output
 }
@@ -64,9 +66,10 @@ export async function generateSatire(form) {
   if (!aiReady || !form.aiConsent) return backup
   try {
     const answer = await text(
-      'You write Daily Burnout, a fictional workplace satire app. Be sharp, dry, funny, specific and humane. Roast office rituals, never the person. No diagnosis, medical advice, motivational clichés, emojis, long dashes, or corporate jargon. English only. Return only valid JSON with keys title, message, managerNote, oracleLines (array of exactly three short strings).',
+      'You write Daily Burnout, a fictional workplace satire app for people taking a five-minute break. Your humor is dry, rude about office systems, and kind to the exhausted person. Use concrete absurd images and short punchlines. Example tone: "The calendar has eaten Thursday. Do not negotiate with it." Never mock coworkers or imply access to their private lives. Never give medical advice. Ban generic phrases such as meeting madness, Monday blues, boost morale, productivity, toxic, self-care, and you got this. No emojis, long dashes, hashtags, or corporate jargon. English only. Return only valid JSON with keys title (4 to 8 words), message (two short sentences, including one small real break action), managerNote (one fictional management memo joke), oracleLines (array of exactly three distinct short jokes).',
       JSON.stringify({ energy: form.energy, focus: form.focus, pressure: form.pressure, ...form.funAnswers, note: form.note.slice(0, 240) }),
-      500,
+      650,
+      { type: 'object', properties: { title: { type: 'string' }, message: { type: 'string' }, managerNote: { type: 'string' }, oracleLines: { type: 'array', items: { type: 'string' }, minItems: 3, maxItems: 3 } }, required: ['title', 'message', 'managerNote', 'oracleLines'] },
     )
     const parsed = JSON.parse(answer.replace(/^```(?:json)?\s*|\s*```$/g, ''))
     if (typeof parsed.title !== 'string' || typeof parsed.message !== 'string' || typeof parsed.managerNote !== 'string' || !Array.isArray(parsed.oracleLines) || parsed.oracleLines.length < 3) throw new Error('Cloudflare returned incomplete satire')
@@ -79,7 +82,7 @@ export async function generateSatire(form) {
 
 export async function generateChallenge() {
   if (!aiReady) throw new Error('Cloudflare Workers AI is not configured')
-  const answer = await text('Write one absurd, visual office-themed image challenge for a short break. Sharp and funny, not mean. English only. One sentence, at most 150 characters. No title, quote marks, emojis, or introduction.', 'Invent today’s challenge. Avoid generic coffee mugs and boring meetings.', 100)
+  const answer = await text('Write one absurd visual office-themed image challenge for a short break. It must feature inanimate office objects behaving badly. Roast office systems, never real employees. No coworker names, private information, surveillance, or embarrassment. English only. One sentence, at most 150 characters. No title, quote marks, emojis, or introduction.', 'Invent today’s challenge. Avoid generic coffee mugs and boring meetings. Example tone: A stapler declares itself interim CEO and demands a smaller desk.', 100)
   return answer.replace(/^['"\s]+|['"\s]+$/g, '').slice(0, 180)
 }
 
