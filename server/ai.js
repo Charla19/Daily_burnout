@@ -97,3 +97,12 @@ export async function generateImage(prompt) {
   if (bytes.length > 7_000_000) throw new Error('Generated image is too large')
   return { bytes, contentType: 'image/jpeg' }
 }
+
+export async function generateSubmissionImage(answer) {
+  const scene = await text(
+    'You are an art director translating one user-written office joke into an illustration. Describe one concrete scene that faithfully depicts the user\'s idea. Every essential actor, object, and action must be recognizable in the image. If the answer mentions AI, show an unmistakable robot or computer intelligence visibly directing the people; do not represent AI as an ordinary human. If the idea is abstract, use a clear visual metaphor. Include only details supported by the answer, plus ordinary office props needed to show it. Do not introduce a different joke or an unrelated daily challenge. No text, signs, labels, letters, logos, or speech bubbles in the image. Respond with only the visual scene description, in English, under 80 words.',
+    answer.slice(0, 400),
+    150,
+  )
+  return generateImage(`User's idea: ${answer.slice(0, 400)}. Illustrate this scene faithfully: ${scene.slice(0, 600)}`)
+}

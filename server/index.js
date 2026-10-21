@@ -4,7 +4,7 @@ import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { pool, query } from './db.js'
-import { aiReady, generateChallenge, generateImage, generateSatire } from './ai.js'
+import { aiReady, generateChallenge, generateImage, generateSubmissionImage, generateSatire } from './ai.js'
 import { deleteImage, imageUrl, saveImage, storageReady } from './storage.js'
 
 const port = Number(process.env.PORT || 3101)
@@ -149,7 +149,7 @@ export async function route(req, res) {
     const claim = await query('UPDATE checkins SET email_sent_at=now() WHERE user_id=$1 AND local_date=$2 AND email_sent_at IS NULL RETURNING id,COALESCE(manager_note,reset_message) AS manager_note', [user.id, day()])
     if (!claim.rowCount) { json(res, 409, { error: 'Your memo was already sent, or you have not checked in today.' }); return }
     const note = claim.rows[0].manager_note
-    try { await sendEmail(user.email, 'A deeply unserious note from management', `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:30px;color:#181818"><p style="color:#d43732;font-weight:bold">DAILY BURNOUT / FICTIONAL MANAGEMENT MEMO</p><h1>Your desk has requested a word.</h1><p style="font-size:18px;line-height:1.6">${escapeHtml(note)}</p><p>This is satire, sent because you asked for it. No actual manager was consulted.</p></div>`, `Daily Burnout fictional management memo: ${note}\n\nThis is satire, sent because you asked for it.`) }
+    try { await sendEmail(user.email, 'Your Daily Burnout memo', `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;padding:30px;color:#181818"><p style="color:#d43732;font-weight:bold">DAILY BURNOUT</p><h1>Your requested memo</h1><p style="font-size:18px;line-height:1.6">${escapeHtml(note)}</p><p>You requested this fictional memo from Daily Burnout. No actual manager was consulted.</p></div>`, `Your requested Daily Burnout memo\n\n${note}\n\nYou requested this fictional memo from Daily Burnout. No actual manager was consulted.`) }
     catch (error) { await query('UPDATE checkins SET email_sent_at=NULL WHERE id=$1', [claim.rows[0].id]); throw error }
     json(res, 200, { ok: true }); return
   }
@@ -170,8 +170,7 @@ export async function route(req, res) {
     if (!reservation.rowCount) { json(res, 409, { error: 'Your image is already being made.' }); return }
     let key
     try {
-      const challenge = await challengeFor(day())
-      const image = await generateImage(`${challenge.prompt}. User twist: ${prompt}`)
+      const image = await generateSubmissionImage(prompt)
       key = `submissions/${day()}/${user.id}-${randomUUID()}.jpg`
       await saveImage(key, image)
       const inserted = await query('INSERT INTO submissions(user_id,challenge_date,response,image_key) VALUES($1,$2,$3,$4) ON CONFLICT(user_id,challenge_date) DO NOTHING RETURNING id', [user.id, day(), prompt, key])
